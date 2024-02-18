@@ -210,6 +210,8 @@ class _AppFlowyBoardContentState extends State<_AppFlowyBoardContent> {
   final GlobalKey _boardContentKey =
       GlobalKey(debugLabel: '$_AppFlowyBoardContent overlay key');
   late BoardOverlayEntry _overlayEntry;
+  final _groupsScrollControllers = <String, ScrollController>{};
+  final _columnsKeys = <String, GlobalKey>{};
 
   @override
   void initState() {
@@ -242,13 +244,21 @@ class _AppFlowyBoardContentState extends State<_AppFlowyBoardContent> {
               leading: widget.leading,
               trailing: widget.trailing,
               groupWidth: widget.groupConstraints.maxWidth,
-              children: _buildColumns(),
+              children: _buildColumns().toList(),
             ),
           ],
         );
       },
       opaque: false,
     );
+  }
+
+  @override
+  void dispose() {
+    for (final controller in _groupsScrollControllers.values) {
+      controller.dispose();
+    }
+    super.dispose();
   }
 
   @override
@@ -259,62 +269,60 @@ class _AppFlowyBoardContentState extends State<_AppFlowyBoardContent> {
     );
   }
 
-  List<Widget> _buildColumns() {
-    final List<Widget> children = [];
+  Iterable<Widget> _buildColumns() sync* {
+    final groupData = widget.dataController.groupDatas;
+    for (var columnIndex = 0; columnIndex < groupData.length; columnIndex++) {
+      final columnData = groupData[columnIndex];
 
-    widget.dataController.groupDatas.asMap().entries.map(
-      (item) {
-        final columnData = item.value;
-        final columnIndex = item.key;
+      final dataSource = _BoardGroupDataSourceImpl(
+        groupId: columnData.id,
+        dataController: widget.dataController,
+      );
 
-        final dataSource = _BoardGroupDataSourceImpl(
-          groupId: columnData.id,
-          dataController: widget.dataController,
-        );
+      final reorderFlexAction = ReorderFlexActionImpl();
+      widget.boardState.reorderFlexActionMap[columnData.id] = reorderFlexAction;
+      final scrollController = _groupsScrollControllers.putIfAbsent(
+        columnData.id,
+        () => ScrollController(debugLabel: 'Group id: ${columnData.id}'),
+      );
 
-        final reorderFlexAction = ReorderFlexActionImpl();
-        widget.boardState.reorderFlexActionMap[columnData.id] =
-            reorderFlexAction;
-
-        children.add(
-          ChangeNotifierProvider.value(
-            key: ValueKey(columnData.id),
-            value: widget.dataController.getGroupController(columnData.id),
-            child: Consumer<AppFlowyGroupController>(
-              builder: (context, value, child) {
-                return ConstrainedBox(
-                  constraints: widget.groupConstraints,
-                  child: LayoutBuilder(
-                    // use LayoutBuilder to get the width of the group
-                    // and pass it to be used in [ReorderDragTarget]
-                    builder: (context, constraints) => AppFlowyBoardGroup(
-                      margin: _marginFromIndex(columnIndex),
-                      bodyPadding: widget.config.groupBodyPadding,
-                      headerBuilder: _buildHeader,
-                      footerBuilder: widget.footerBuilder,
-                      cardBuilder: widget.cardBuilder,
-                      dataSource: dataSource,
-                      scrollController: ScrollController(),
-                      phantomController: widget.phantomController,
-                      onReorder: widget.dataController.moveGroupItem,
-                      cornerRadius: widget.config.groupCornerRadius,
-                      backgroundColor: widget.config.groupBackgroundColor,
-                      dragStateStorage: widget.boardState,
-                      dragTargetKeys: widget.boardState,
-                      reorderFlexAction: reorderFlexAction,
-                      stretchGroupHeight: widget.config.stretchGroupHeight,
-                      groupWidth: constraints.maxWidth,
-                    ),
-                  ),
-                );
-              },
-            ),
-          ),
-        );
-      },
-    ).toList();
-
-    return children;
+      yield ChangeNotifierProvider.value(
+        key: _columnsKeys.putIfAbsent(
+          columnData.id,
+          () => GlobalKey(debugLabel: 'Group id: ${columnData.id}'),
+        ),
+        value: widget.dataController.getGroupController(columnData.id),
+        child: Consumer<AppFlowyGroupController>(
+          builder: (context, value, child) {
+            return ConstrainedBox(
+              constraints: widget.groupConstraints,
+              child: LayoutBuilder(
+                // use LayoutBuilder to get the width of the group
+                // and pass it to be used in [ReorderDragTarget]
+                builder: (context, constraints) => AppFlowyBoardGroup(
+                  margin: _marginFromIndex(columnIndex),
+                  bodyPadding: widget.config.groupBodyPadding,
+                  headerBuilder: _buildHeader,
+                  footerBuilder: widget.footerBuilder,
+                  cardBuilder: widget.cardBuilder,
+                  dataSource: dataSource,
+                  scrollController: scrollController,
+                  phantomController: widget.phantomController,
+                  onReorder: widget.dataController.moveGroupItem,
+                  cornerRadius: widget.config.groupCornerRadius,
+                  backgroundColor: widget.config.groupBackgroundColor,
+                  dragStateStorage: widget.boardState,
+                  dragTargetKeys: widget.boardState,
+                  reorderFlexAction: reorderFlexAction,
+                  stretchGroupHeight: widget.config.stretchGroupHeight,
+                  groupWidth: constraints.maxWidth,
+                ),
+              ),
+            );
+          },
+        ),
+      );
+    }
   }
 
   Widget? _buildHeader(

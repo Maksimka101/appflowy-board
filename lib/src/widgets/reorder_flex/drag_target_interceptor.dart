@@ -103,7 +103,7 @@ class OverlappingDragTargetInterceptor extends DragTargetInterceptor {
               dragTargetId, dragTargetData, index);
 
           columnsState.reorderFlexActionMap[dragTargetId]
-              ?.resetDragTargetIndex(index);
+              ?.resetDragTargetIndex?.call(index);
         }
       });
     }

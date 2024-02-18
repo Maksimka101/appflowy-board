@@ -59,7 +59,7 @@ abstract class ReorderFlexAction {
       _scrollToBottom!;
 
   void Function(int)? _resetDragTargetIndex;
-  void Function(int) get resetDragTargetIndex => _resetDragTargetIndex!;
+  void Function(int)? get resetDragTargetIndex => _resetDragTargetIndex;
 }
 
 class ReorderFlexConfig {
@@ -154,9 +154,6 @@ class ReorderFlexState extends State<ReorderFlex>
   /// Controls scrolls and measures scroll progress.
   late ScrollController _scrollController;
 
-  /// Records the position of the [Scrollable]
-  ScrollPosition? _attachedScrollPosition;
-
   /// Whether or not we are currently scrolling this view to show a widget.
   bool _scrolling = false;
 
@@ -202,24 +199,10 @@ class ReorderFlexState extends State<ReorderFlex>
 
   @override
   void didChangeDependencies() {
-    if (_attachedScrollPosition != null) {
-      _scrollController.detach(_attachedScrollPosition!);
-      _attachedScrollPosition = null;
-    }
-
     _scrollController = widget.scrollController ??
         PrimaryScrollController.maybeOf(context) ??
         ScrollController();
 
-    if (_scrollController.hasClients) {
-      _attachedScrollPosition = Scrollable.maybeOf(context)?.position;
-    } else {
-      _attachedScrollPosition = null;
-    }
-
-    if (_attachedScrollPosition != null) {
-      _scrollController.attach(_attachedScrollPosition!);
-    }
     super.didChangeDependencies();
   }
 
@@ -248,11 +231,6 @@ class ReorderFlexState extends State<ReorderFlex>
 
   @override
   void dispose() {
-    if (_attachedScrollPosition != null) {
-      _scrollController.detach(_attachedScrollPosition!);
-      _attachedScrollPosition = null;
-    }
-
     _animation.dispose();
     super.dispose();
   }
